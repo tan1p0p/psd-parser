@@ -3,7 +3,7 @@ import struct
 import matplotlib.pyplot as plt
 import numpy as np
 
-path = 'psd/illust2.psd'
+path = 'psd/illust1.psd'
 with open(path, 'rb') as f:
     psd_data = f.read()
 
@@ -79,6 +79,8 @@ print('img_resources_sec_length:', img_resources_sec_length)
 
 layer_mask_sec_length, offset = continue_unpack('>I', 4, psd_data, offset)
 print('layer_mask_sec_length:', layer_mask_sec_length)
+
+"""
 
 # Layer info
 layer_length, offset = continue_unpack('>I', 4, psd_data, offset)
@@ -203,4 +205,4 @@ elif compression[0] == 1:
     plt.imshow(img)
     plt.show()
 
-"""
+# """
