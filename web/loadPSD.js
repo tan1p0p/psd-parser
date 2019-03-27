@@ -39,16 +39,8 @@ function onFileSelected(file) {
         // ===================
         // File Header Section
         // ===================
-        psd.fileHeader = {};
-        psd.fileHeader.signature = decodeString(arrayBuffer, 0, 4);
-        psd.fileHeader.version   = decodeNumeric(dataview, 4, 'uint16');
-        // Reserve 6 bytes.
-        psd.fileHeader.channels  = decodeNumeric(dataview, 12, 'uint16');
-        psd.fileHeader.height    = decodeNumeric(dataview, 14, 'uint32');
-        psd.fileHeader.width     = decodeNumeric(dataview, 18, 'uint32');
-        psd.fileHeader.depth     = decodeNumeric(dataview, 22, 'uint16');
-        psd.fileHeader.colorMode = decodeNumeric(dataview, 24, 'uint16');
-        psd.fileHeader.imageSize = psd.fileHeader.height * psd.fileHeader.width;
+        let offset = 0;
+        [psd.fileHeader, offset] = getFileHeader(dataview, arrayBuffer);
 
 
         // =======================
@@ -61,7 +53,7 @@ function onFileSelected(file) {
         psd.colorModeData.offset = 26;
 
         const colorModeDataOffset = psd.colorModeData.offset
-        psd.colorModeData.length = decodeNumeric(dataview, colorModeDataOffset, 'uint32');
+        psd.colorModeData.length = decodeNumeric(dataview, colorModeDataOffset, 'uint32')[0];
 
 
         // =======================
@@ -73,7 +65,7 @@ function onFileSelected(file) {
         psd.imageResources.offset = psd.colorModeData.offset + psd.colorModeData.length + 4;
 
         const imageResourcesOffset = psd.imageResources.offset;
-        psd.imageResources.length = decodeNumeric(dataview, imageResourcesOffset, 'uint32');
+        psd.imageResources.length = decodeNumeric(dataview, imageResourcesOffset, 'uint32')[0];
 
 
         // ==================================
@@ -84,7 +76,7 @@ function onFileSelected(file) {
         psd.layerMask.offset = psd.imageResources.offset + psd.imageResources.length + 4;
 
         const layerMaskOffset = psd.layerMask.offset;
-        psd.layerMask.length = decodeNumeric(dataview, layerMaskOffset, 'uint32');
+        psd.layerMask.length = decodeNumeric(dataview, layerMaskOffset, 'uint32')[0];
         psd.layerMask.layerInfo = getLayerInfo(dataview, arrayBuffer, layerMaskOffset + 4);
 
 
@@ -99,10 +91,10 @@ function onFileSelected(file) {
         const imageDataOffset = psd.imageData.offset;
         psd.imageData.length = psd.size - (imageDataOffset + 2);
 
-        psd.imageData.compressionMethod = decodeNumeric(dataview, imageDataOffset, 'uint16');
+        psd.imageData.compressionMethod = decodeNumeric(dataview, imageDataOffset, 'uint16')[0];
         psd.imageData.imageDataArray = decodeTypedArray(dataview, imageDataOffset + 2, psd.imageData.length, 'uint8');
 
-        // psd.imageData.imageData = getImageData(dataview, psd);
+        psd.imageData.imageData = getImageData(dataview, psd);
 
         // image = getImageDom(psd);
 
@@ -116,24 +108,25 @@ function onFileSelected(file) {
 }
 
 function decodeString(arrayBuffer, begin, length){
-    let subArrayBuffer = arrayBuffer.slice(begin, begin + length);
-    return String.fromCharCode.apply("", new Uint8Array(subArrayBuffer));
+    const subArrayBuffer = arrayBuffer.slice(begin, begin + length);
+    const str = String.fromCharCode.apply("", new Uint8Array(subArrayBuffer))
+    return [str, begin + length];
 }
 
 function decodeNumeric(dataview, begin, type){
     switch (type){
         case 'int8':
-            return dataview.getInt8(begin);
+            return [dataview.getInt8(begin), begin + 1];
         case 'uint8':
-            return dataview.getUint8(begin);
+            return [dataview.getUint8(begin), begin + 1];
         case 'int16':
-            return dataview.getInt16(begin);
+            return [dataview.getInt16(begin), begin + 2];
         case 'uint16':
-            return dataview.getUint16(begin);
+            return [dataview.getUint16(begin), begin + 2];
         case 'int32':
-            return dataview.getInt32(begin);
+            return [dataview.getInt32(begin), begin + 4];
         case 'uint32':
-            return dataview.getUint32(begin);
+            return [dataview.getUint32(begin), begin + 4];
     }
 }
 
@@ -144,18 +137,18 @@ function decodeTypedArray(dataview, begin, length, type){
     const epoch = Math.floor(length / typeLength);
     let decodedArray = new Array(epoch);
 
+    let offset = begin
     for (let idx = 0; idx < epoch; idx++) {
-        decodedArray[idx] = decodeNumeric(dataview, begin, type);
-        begin += typeLength;
+        [decodedArray[idx], offset] = decodeNumeric(dataview, offset, type);
     }
 
     switch (type){
         case 'uint8':
-            return new Uint8Array(decodedArray);
+            return [new Uint8Array(decodedArray), begin + length];
         case 'uint16':
-            return new Uint16Array(decodedArray);
+            return [new Uint16Array(decodedArray), begin + length];
         case 'uint32':
-            return new Uint32Array(decodedArray);
+            return [new Uint32Array(decodedArray), begin + length];
     }
 }
 
@@ -165,18 +158,18 @@ function decodeRLE(dataview, rowSizes, offset){
     rowSizes.forEach(rowSize => {
         const firstOffset = offset;
         while (offset - firstOffset < rowSize) {
-            sign = decodeNumeric(dataview, offset, 'int8');
+            sign = decodeNumeric(dataview, offset, 'int8')[0];
             offset += 1;
 
             if (sign < 0) {
-                value = decodeNumeric(dataview, offset, 'uint8');
+                value = decodeNumeric(dataview, offset, 'uint8')[0];
                 offset += 1;
                 for (let j = 0; j < Math.abs(sign) + 1; j++) {
                     channelData.push(value);
                 }
             } else {
                 for (let j = 0; j < sign + 1; j++) {
-                    value = decodeNumeric(dataview, offset, 'uint8');
+                    value = decodeNumeric(dataview, offset, 'uint8')[0];
                     offset += 1;
                     channelData.push(value);
                 }
@@ -187,51 +180,54 @@ function decodeRLE(dataview, rowSizes, offset){
     return channelData;
 }
 
+function getFileHeader(dataview, arrayBuffer){
+    let offset = 0;
+    fileHeader = {};
+    [fileHeader.signature, offset] = decodeString(arrayBuffer, offset, 4);
+    [fileHeader.version, offset]   = decodeNumeric(dataview, offset, 'uint16');
+    offset += 6; // Reserve 6 bytes.
+    [fileHeader.channels, offset]  = decodeNumeric(dataview, offset, 'uint16');
+    [fileHeader.height, offset]    = decodeNumeric(dataview, offset, 'uint32');
+    [fileHeader.width, offset]     = decodeNumeric(dataview, offset, 'uint32');
+    [fileHeader.depth, offset]     = decodeNumeric(dataview, offset, 'uint16');
+    [fileHeader.colorMode, offset] = decodeNumeric(dataview, offset, 'uint16');
+    fileHeader.imageSize = fileHeader.height * fileHeader.width;
+    return [fileHeader, offset]
+}
+
 function getLayerInfo(dataview, arrayBuffer, offset){
     const  layerInfo = {};
-    layerInfo.length = decodeNumeric(dataview, offset, 'uint32');
-    layerInfo.layerCount = decodeNumeric(dataview, offset + 4, 'uint16');
-    layerInfo.layerRecords = [];
+    [layerInfo.length, offset] = decodeNumeric(dataview, offset, 'uint32');
+    [layerInfo.layerCount, offset] = decodeNumeric(dataview, offset, 'uint16');
 
-    offset += 6
+    layerInfo.layerRecords = [];
     for (let i = 0; i < layerInfo.layerCount; i++) {
         const layerRecord = {};
 
         const rectangle = [];
         for (let j = 0; j < 4; j++) {
-            rectangle.push(decodeNumeric(dataview, offset, 'uint32'));
-            offset += 4;
+            [value, offset] = decodeNumeric(dataview, offset, 'uint32')
+            rectangle.push(value);
         }
-
         layerRecord.rectangle = rectangle
-        layerRecord.channels  = decodeNumeric(dataview, offset, 'uint16');
-        offset += 2;
 
         const channelInfo = [];
+        [layerRecord.channels, offset]  = decodeNumeric(dataview, offset, 'uint16');
         for (let j = 0; j < layerRecord.channels; j++) {
-            const id     = decodeNumeric(dataview, offset, 'int16');
-            offset += 2;
-            const length = decodeNumeric(dataview, offset, 'uint32');
-            offset += 4;
-            channelInfo.push([id, length]);
+            let info = [];
+            [info[0], offset] = decodeNumeric(dataview, offset, 'int16');
+            [info[1], offset] = decodeNumeric(dataview, offset, 'uint32');
+            channelInfo.push(info);
         }
         layerRecord.channelInfo = channelInfo;
 
-        layerRecord.blendModeSignature = decodeString(arrayBuffer, offset, 4);
-        offset += 4;
-        layerRecord.blendModeKey       = decodeString(arrayBuffer, offset, 4);
-        offset += 4;
-
-        layerRecord.opacity = decodeNumeric(dataview, offset, 'uint8');
-        offset += 1;
-        layerRecord.clipping = decodeNumeric(dataview, offset, 'uint8');
-        offset += 1;
-        layerRecord.flags = decodeNumeric(dataview, offset, 'uint8');
-        offset += 1;
-        layerRecord.fillter = decodeNumeric(dataview, offset, 'uint8');
-        offset += 1;
-        layerRecord.extraDataLength = decodeNumeric(dataview, offset, 'uint32');
-        offset += 4;
+        [layerRecord.blendModeSignature, offset] = decodeString(arrayBuffer, offset, 4);
+        [layerRecord.blendModeKey, offset]       = decodeString(arrayBuffer, offset, 4);
+        [layerRecord.opacity, offset]            = decodeNumeric(dataview, offset, 'uint8');
+        [layerRecord.clipping, offset]           = decodeNumeric(dataview, offset, 'uint8');
+        [layerRecord.flags, offset]              = decodeNumeric(dataview, offset, 'uint8');
+        [layerRecord.fillter, offset]            = decodeNumeric(dataview, offset, 'uint8');
+        [layerRecord.extraDataLength, offset]    = decodeNumeric(dataview, offset, 'uint32');
 
         console.log(layerRecord)
         break
@@ -257,24 +253,20 @@ function getImageData(dataview, psd){
         // RLE compressed image data.
         let offset = psd.imageData.offset + 2;
 
-        rRowSizes = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        offset += height * 2;
-        gRowSizes = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        offset += height * 2;
-        bRowSizes = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        offset += height * 2;
+        [rRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
+        [gRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
+        [bRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
         if (psd.fileHeader.channels === 4){
-            aRowSizes = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-            offset += height * 2;
+            [aRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
         }
 
         const reducer = (sum, currentValue) => sum + currentValue;
         psd.imageData.rChannel = decodeRLE(dataview, rRowSizes, offset);
-        offset += rRowSizes.reduce(reducer)
+        offset += rRowSizes.reduce(reducer);
         psd.imageData.gChannel = decodeRLE(dataview, gRowSizes, offset);
-        offset += gRowSizes.reduce(reducer)
+        offset += gRowSizes.reduce(reducer);
         psd.imageData.bChannel = decodeRLE(dataview, bRowSizes, offset);
-        offset += bRowSizes.reduce(reducer)
+        offset += bRowSizes.reduce(reducer);
         if (psd.fileHeader.channels === 4){
             psd.imageData.aChannel = decodeRLE(dataview, bRowSizes, offset);
         } else {
