@@ -3,7 +3,7 @@ import struct
 import matplotlib.pyplot as plt
 import numpy as np
 
-path = 'psd/illust1.psd'
+path = '../psd/illust2.psd'
 with open(path, 'rb') as f:
     psd_data = f.read()
 
@@ -15,19 +15,38 @@ def continue_unpack(fmt, fmt_size, buffer, offset=0):
     return data, next_offset
 
 def get_RLE_data(compressed_sizes, img_np, psd_data, offset):
-    for row_count, compressed_size in enumerate(compressed_sizes):
-        row_num = int(compressed_size / 2)
-
-        for _ in range(row_num):
+    for row_idx, row_size in enumerate(compressed_sizes):
+        byte_sum = 0
+        col_idx = 0
+        while byte_sum < row_size:
             sign, offset = continue_unpack('>b', 1, psd_data, offset)
+            byte_sum += 1
             if sign[0] < 0:
                 value, offset = continue_unpack('>B', 1, psd_data, offset)
-                for col_count in range(abs(sign[0]) + 1):
-                    img_np[row_count][col_count] = value[0]
+                byte_sum += 1
+
+                for _ in range(abs(sign[0]) + 1):
+                    img_np[row_idx][col_idx] = value[0]
+                    col_idx += 1
             else:
-                for col_count in range(abs(sign[0]) + 1):
+                for _ in range(abs(sign[0]) + 1):
                     value, offset = continue_unpack('>B', 1, psd_data, offset)
-                    img_np[row_count][col_count] = value[0]
+                    byte_sum += 1
+
+                    img_np[row_idx][col_idx] = value[0]
+                    col_idx += 1
+
+        # for _ in range(row_num): # 明らかにここが悪い
+        #     sign, offset = continue_unpack('>b', 1, psd_data, offset)
+        #     print(sign[0])
+        #     if sign[0] < 0:
+        #         value, offset = continue_unpack('>B', 1, psd_data, offset)
+        #         for col_count in range(abs(sign[0]) + 1):
+        #             img_np[row_count][col_count] = value[0]
+        #     else:
+        #         for col_count in range(abs(sign[0]) + 1):
+        #             value, offset = continue_unpack('>B', 1, psd_data, offset)
+        #             img_np[row_count][col_count] = value[0]
 
     return img_np, offset
 
