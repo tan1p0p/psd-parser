@@ -27,6 +27,7 @@ function handleFileSelect(evt) {
     // document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
 }
 
+// Main function which run when file selected.
 function onFileSelected(file) {
     let fileReader = new FileReader();
     let psd = file;
@@ -40,7 +41,8 @@ function onFileSelected(file) {
         // ===================
         psd.fileHeader = {};
         psd.fileHeader.signature = decodeString(arrayBuffer, 0, 4);
-        psd.fileHeader.version   = decodeNumeric(dataview, 4, 'uint16'); // reserved area 6 bytes.
+        psd.fileHeader.version   = decodeNumeric(dataview, 4, 'uint16');
+        // Reserve 6 bytes.
         psd.fileHeader.channels  = decodeNumeric(dataview, 12, 'uint16');
         psd.fileHeader.height    = decodeNumeric(dataview, 14, 'uint32');
         psd.fileHeader.width     = decodeNumeric(dataview, 18, 'uint32');
@@ -83,6 +85,7 @@ function onFileSelected(file) {
 
         const layerMaskOffset = psd.layerMask.offset;
         psd.layerMask.length = decodeNumeric(dataview, layerMaskOffset, 'uint32');
+        psd.layerMask.layerInfo = getLayerInfo(dataview, arrayBuffer, layerMaskOffset + 4);
 
 
         // ==================
@@ -99,12 +102,11 @@ function onFileSelected(file) {
         psd.imageData.compressionMethod = decodeNumeric(dataview, imageDataOffset, 'uint16');
         psd.imageData.imageDataArray = decodeTypedArray(dataview, imageDataOffset + 2, psd.imageData.length, 'uint8');
 
-        psd.imageData.imageData = getImageData(dataview, psd);
-        
+        // psd.imageData.imageData = getImageData(dataview, psd);
+
         // image = getImageDom(psd);
 
         console.log(psd);
-        // debugger
         canvas.width = psd.fileHeader.width;
         canvas.height = psd.fileHeader.height;
         ctx.putImageData(psd.imageData.imageData, 0, 0);
@@ -124,8 +126,12 @@ function decodeNumeric(dataview, begin, type){
             return dataview.getInt8(begin);
         case 'uint8':
             return dataview.getUint8(begin);
+        case 'int16':
+            return dataview.getInt16(begin);
         case 'uint16':
             return dataview.getUint16(begin);
+        case 'int32':
+            return dataview.getInt32(begin);
         case 'uint32':
             return dataview.getUint32(begin);
     }
@@ -150,6 +156,85 @@ function decodeTypedArray(dataview, begin, length, type){
             return new Uint16Array(decodedArray);
         case 'uint32':
             return new Uint32Array(decodedArray);
+    }
+}
+
+function decodeRLE(dataview, rowSizes, offset){
+    let channelData = [];
+
+    rowSizes.forEach(rowSize => {
+        const firstOffset = offset;
+        while (offset - firstOffset < rowSize) {
+            sign = decodeNumeric(dataview, offset, 'int8');
+            offset += 1;
+
+            if (sign < 0) {
+                value = decodeNumeric(dataview, offset, 'uint8');
+                offset += 1;
+                for (let j = 0; j < Math.abs(sign) + 1; j++) {
+                    channelData.push(value);
+                }
+            } else {
+                for (let j = 0; j < sign + 1; j++) {
+                    value = decodeNumeric(dataview, offset, 'uint8');
+                    offset += 1;
+                    channelData.push(value);
+                }
+            }
+        }
+    });
+
+    return channelData;
+}
+
+function getLayerInfo(dataview, arrayBuffer, offset){
+    const  layerInfo = {};
+    layerInfo.length = decodeNumeric(dataview, offset, 'uint32');
+    layerInfo.layerCount = decodeNumeric(dataview, offset + 4, 'uint16');
+    layerInfo.layerRecords = [];
+
+    offset += 6
+    for (let i = 0; i < layerInfo.layerCount; i++) {
+        const layerRecord = {};
+
+        const rectangle = [];
+        for (let j = 0; j < 4; j++) {
+            rectangle.push(decodeNumeric(dataview, offset, 'uint32'));
+            offset += 4;
+        }
+
+        layerRecord.rectangle = rectangle
+        layerRecord.channels  = decodeNumeric(dataview, offset, 'uint16');
+        offset += 2;
+
+        const channelInfo = [];
+        for (let j = 0; j < layerRecord.channels; j++) {
+            const id     = decodeNumeric(dataview, offset, 'int16');
+            offset += 2;
+            const length = decodeNumeric(dataview, offset, 'uint32');
+            offset += 4;
+            channelInfo.push([id, length]);
+        }
+        layerRecord.channelInfo = channelInfo;
+
+        layerRecord.blendModeSignature = decodeString(arrayBuffer, offset, 4);
+        offset += 4;
+        layerRecord.blendModeKey       = decodeString(arrayBuffer, offset, 4);
+        offset += 4;
+
+        layerRecord.opacity = decodeNumeric(dataview, offset, 'uint8');
+        offset += 1;
+        layerRecord.clipping = decodeNumeric(dataview, offset, 'uint8');
+        offset += 1;
+        layerRecord.flags = decodeNumeric(dataview, offset, 'uint8');
+        offset += 1;
+        layerRecord.fillter = decodeNumeric(dataview, offset, 'uint8');
+        offset += 1;
+        layerRecord.extraDataLength = decodeNumeric(dataview, offset, 'uint32');
+        offset += 4;
+
+        console.log(layerRecord)
+        break
     }
 }
 
@@ -210,37 +295,6 @@ function getImageData(dataview, psd){
     const clampedImage = new Uint8ClampedArray(rgbaImage);
 
     return new ImageData(clampedImage, psd.fileHeader.width, psd.fileHeader.height);
-}
-
-function decodeRLE(dataview, rowSizes, offset){
-    let channelData = [];
-
-    console.log('aaa')
-
-    rowSizes.forEach(rowSize => {
-        unitNum = Math.floor(rowSize / 2);
-        for (let i = 0; i < unitNum; i++) {
-            // console.log('bbb')
-            sign = decodeNumeric(dataview, offset, 'int8');
-            offset += 1;
-
-            if (sign < 0) {
-                value = decodeNumeric(dataview, offset, 'uint8');
-                offset += 1;
-                for (let j = 0; j < Math.abs(sign) + 1; j++) {
-                    channelData.push(value);
-                }
-            } else {
-                for (let j = 0; j < sign + 1; j++) {
-                    value = decodeNumeric(dataview, offset, 'uint8');
-                    offset += 1;
-                    channelData.push(value);
-                }
-            }
-        }
-    });
-
-    return channelData;
 }
 
 function getImageDom(psd){
