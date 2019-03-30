@@ -74,10 +74,11 @@ function onFileSelected(file) {
 
         psd.layerMask = {};
         psd.layerMask.offset = psd.imageResources.offset + psd.imageResources.length + 4;
-
-        const layerMaskOffset = psd.layerMask.offset;
-        psd.layerMask.length = decodeNumeric(dataview, layerMaskOffset, 'uint32')[0];
-        psd.layerMask.layerInfo = getLayerInfo(dataview, arrayBuffer, layerMaskOffset + 4);
+        [psd.layerMask.length, offset] = decodeNumeric(dataview, psd.layerMask.offset, 'uint32');
+        // 透明度情報はいるとバグる？
+        if (psd.layerMask.length > 0){
+            [psd.layerMask.layerInfo, offset] = getLayerInfo(dataview, arrayBuffer, offset);
+        }
 
 
         // ==================
@@ -85,18 +86,18 @@ function onFileSelected(file) {
         // ==================
         // Image pixel data.
 
-        psd.imageData = {};
-        psd.imageData.offset = psd.layerMask.offset + psd.layerMask.length + 4;
-
-        const imageDataOffset = psd.imageData.offset;
-        psd.imageData.length = psd.size - (imageDataOffset + 2);
-
-        psd.imageData.compressionMethod = decodeNumeric(dataview, imageDataOffset, 'uint16')[0];
-        psd.imageData.imageDataArray = decodeTypedArray(dataview, imageDataOffset + 2, psd.imageData.length, 'uint8');
-
-        psd.imageData.imageData = getImageData(dataview, psd);
-
-        // image = getImageDom(psd);
+        const imageDataOffset = psd.layerMask.offset + psd.layerMask.length + 4;
+        const imageDataLength = psd.size - (imageDataOffset + 2);
+        psd.imageData = getImageData(
+            dataview,
+            imageDataLength,
+            imageDataOffset,
+            psd.fileHeader.width,
+            psd.fileHeader.height,
+            psd.fileHeader.channels
+        );
+        psd.imageData.offset = imageDataOffset;
+        psd.imageData.length = imageDataLength;
 
         console.log(psd);
         canvas.width = psd.fileHeader.width;
@@ -177,7 +178,7 @@ function decodeRLE(dataview, rowSizes, offset){
         }
     });
 
-    return channelData;
+    return [channelData, offset];
 }
 
 function getFileHeader(dataview, arrayBuffer){
@@ -196,14 +197,19 @@ function getFileHeader(dataview, arrayBuffer){
 }
 
 function getLayerInfo(dataview, arrayBuffer, offset){
-    const  layerInfo = {};
+    const layerInfo = {};
+    const firstOffset = offset;
     [layerInfo.length, offset] = decodeNumeric(dataview, offset, 'uint32');
     [layerInfo.layerCount, offset] = decodeNumeric(dataview, offset, 'uint16');
 
+    console.log(layerInfo)
+
+    // get layer records
     layerInfo.layerRecords = [];
     for (let i = 0; i < layerInfo.layerCount; i++) {
         const layerRecord = {};
 
+        // [top, left, bottom, right]
         const rectangle = [];
         for (let j = 0; j < 4; j++) {
             [value, offset] = decodeNumeric(dataview, offset, 'uint32')
@@ -229,64 +235,80 @@ function getLayerInfo(dataview, arrayBuffer, offset){
         [layerRecord.fillter, offset]            = decodeNumeric(dataview, offset, 'uint8');
         [layerRecord.extraDataLength, offset]    = decodeNumeric(dataview, offset, 'uint32');
 
-        console.log(layerRecord)
-        break
+        offset += layerRecord.extraDataLength; // TODO: to get full info
+
+        layerInfo.layerRecords.push(layerRecord)
     }
+
+    // get channel image data
+    // for (let layerIdx = 0; layerIdx < layerInfo.layerCount; layerIdx++) {
+    //     const layerRecord = layerInfo.layerRecords[layerIdx];
+    //     const height = layerRecord.rectangle[2] - layerRecord.rectangle[0];
+    //     const width = layerRecord.rectangle[3] - layerRecord.rectangle[1];
+    //     let length = 0;
+    //     let channel = 0;
+    //     layerRecord.channelInfo.forEach(channelInfo => {
+    //         length += channelInfo[1];
+    //         channel += 1;
+    //     });
+    //     console.log(getImageData(dataview, length, offset, width, height, channel))
+    // }
+
+    return [layerInfo, firstOffset + layerInfo.length]
 }
 
-function getImageData(dataview, psd){
-    const imageSize = psd.fileHeader.imageSize;
-    const height = psd.fileHeader.height;
+function getImageData(dataview, length, offset, width, height, channels){
+    let imageData = {}
+    const imageSize = height * width;
 
-    if (psd.imageData.compressionMethod === 0){
-        // Raw image data.
-        psd.imageData.gChannel = psd.imageData.imageDataArray.slice(imageSize, imageSize * 2);
-        psd.imageData.rChannel = psd.imageData.imageDataArray.slice(0, imageSize);
-        psd.imageData.bChannel = psd.imageData.imageDataArray.slice(imageSize * 2, imageSize * 3);
-        psd.imageData.aChannel = new Array(imageSize).fill(255);
+    [imageData.compressionMethod, offset] = decodeNumeric(dataview, offset, 'uint16');
+    const imageDataArray = decodeTypedArray(dataview, offset, length, 'uint8');
 
-        if (psd.fileHeader.channels === 4){
-            psd.imageData.aChannel = psd.imageData.imageDataArray.slice(imageSize * 3, imageSize * 4);
-        }
+    console.log(imageData)
 
-    } else if (psd.imageData.compressionMethod === 1) {
-        // RLE compressed image data.
-        let offset = psd.imageData.offset + 2;
-
-        [rRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        [gRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        [bRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        if (psd.fileHeader.channels === 4){
-            [aRowSizes, offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
-        }
-
-        const reducer = (sum, currentValue) => sum + currentValue;
-        psd.imageData.rChannel = decodeRLE(dataview, rRowSizes, offset);
-        offset += rRowSizes.reduce(reducer);
-        psd.imageData.gChannel = decodeRLE(dataview, gRowSizes, offset);
-        offset += gRowSizes.reduce(reducer);
-        psd.imageData.bChannel = decodeRLE(dataview, bRowSizes, offset);
-        offset += bRowSizes.reduce(reducer);
-        if (psd.fileHeader.channels === 4){
-            psd.imageData.aChannel = decodeRLE(dataview, bRowSizes, offset);
+    let channelData = []
+    // Raw image data.
+    if (imageData.compressionMethod === 0){
+        channelData[0] = imageDataArray.slice(imageSize, imageSize * 2);
+        channelData[1] = imageDataArray.slice(0, imageSize);
+        channelData[2] = imageDataArray.slice(imageSize * 2, imageSize * 3);
+        if (channels === 4){
+            channelData[3] = imageDataArray.slice(imageSize * 3, imageSize * 4);
         } else {
-            psd.imageData.aChannel = new Array(imageSize).fill(255);
+            channelData[3] = new Array(imageSize).fill(255);
         }
 
+    // RLE compressed image data.
+    } else if (imageData.compressionMethod === 1) {
+        let rowSizes = [];
+        for (let i = 0; i < channels; i++) {
+            [rowSizes[i], offset] = decodeTypedArray(dataview, offset, height * 2, 'uint16');
+        }
+
+        for (let i = 0; i < channels; i++) {
+            [channelData[i], offset] = decodeRLE(dataview, rowSizes[0], offset);
+        }
+
+        if (channels < 4) {
+            channelData[3] = new Array(imageSize).fill(255);
+        }
+
+    // Zip files.
     } else {
         console.log('Unsupported compression method.')
     }
 
     let rgbaImage = [];
-    for (let i = 0; i < psd.imageData.rChannel.length; i++) {
-        rgbaImage.push(psd.imageData.rChannel[i]);
-        rgbaImage.push(psd.imageData.gChannel[i]);
-        rgbaImage.push(psd.imageData.bChannel[i]);
-        rgbaImage.push(psd.imageData.aChannel[i]);
+    for (let i = 0; i < channelData[0].length; i++) {
+        rgbaImage.push(channelData[0][i]);
+        rgbaImage.push(channelData[1][i]);
+        rgbaImage.push(channelData[2][i]);
+        rgbaImage.push(channelData[3][i]);
     }
     const clampedImage = new Uint8ClampedArray(rgbaImage);
+    imageData.imageData = new ImageData(clampedImage, width, height)
 
-    return new ImageData(clampedImage, psd.fileHeader.width, psd.fileHeader.height);
+    return imageData
 }
 
 function getImageDom(psd){
