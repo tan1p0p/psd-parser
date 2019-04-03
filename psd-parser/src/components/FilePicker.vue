@@ -6,19 +6,15 @@
 </template>
 
 <script>
-import parser from '@/utils/parser';
-
 export default {
   name: 'FilePicker',
-  // props: {
-  //   msg: String,
-  // },
   data() {
     return {
       psd: {
         file: null,
         arrayBuffer: null,
         dataView: null,
+        structure: null,
         fileHeaderSection: null,
         colorModeDataSection: null,
         imageResourcesSection: null,
@@ -44,7 +40,12 @@ export default {
       fileReader.readAsArrayBuffer(file);
     },
     parsePSD() {
-      parser();
+      if (this.psd.dataView != null) {
+        this.psd.structure = this.getStructure(this.psd);
+        this.psd.fileHeaderSection = this.getFileHeaderSection(this.psd);
+        this.psd.layerAndMaskImfoSection = this.getLayerAndMaskImfoSection(this.psd);
+        this.psd.imageDataSection = this.getImageDataSection(this.psd);
+      }
     },
   },
 };
