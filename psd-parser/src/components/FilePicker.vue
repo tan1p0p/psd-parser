@@ -16,9 +16,9 @@ export default {
         dataView: null,
         structure: null,
         fileHeaderSection: null,
-        colorModeDataSection: null,
-        imageResourcesSection: null,
-        layerAndMaskImfoSection: null,
+        // colorModeDataSection: null,
+        // imageResourcesSection: null,
+        layerAndMaskInfoSection: null,
         imageDataSection: null,
       },
     };
@@ -42,9 +42,14 @@ export default {
     parsePSD() {
       if (this.psd.dataView != null) {
         this.psd.structure = this.getStructure(this.psd);
+        console.log('Successfully got structure.');
         this.psd.fileHeaderSection = this.getFileHeaderSection(this.psd);
-        this.psd.layerAndMaskImfoSection = this.getLayerAndMaskImfoSection(this.psd);
+        console.log('Successfully got file header section.');
+        // this.psd.layerAndMaskInfoSection = this.getLayerAndMaskInfoSection(this.psd);
+        // console.log('Successfully got layer and mask info section.');
         this.psd.imageDataSection = this.getImageDataSection(this.psd);
+        console.log('Successfully got image data section.');
+        this.$emit('parsePSD', this.psd);
       }
     },
   },

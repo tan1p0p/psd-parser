@@ -37,7 +37,7 @@ export default {
       return fileHeader;
     },
 
-    getLayerAndMaskImfoSection(psd) {
+    getLayerAndMaskInfoSection(psd) {
       const { arrayBuffer, dataView } = psd;
       let offset = psd.structure.offset[3] + 4;
 
@@ -84,84 +84,89 @@ export default {
       }
 
       // get channel image data
-      layerInfo.channelImageData = [];
+      layerInfo.imageBitmap = [];
       for (let layerIdx = 0; layerIdx < Math.abs(layerInfo.layerCount); layerIdx += 1) {
         const layerRecord = layerInfo.layerRecords[layerIdx];
 
-        let length = 0;
-        let channel = 0;
-        layerRecord.channelInfo.forEach((channelInfo) => {
-          length += channelInfo[1];
-          channel += 1;
+        const channels = layerRecord.channelInfo.length;
+        const width = layerRecord.rectangle[2] - layerRecord.rectangle[0];
+        const height = layerRecord.rectangle[3] - layerRecord.rectangle[1];
+        const imageSize = width * height;
+
+        const layerImageData = {};
+        for (let channelIdx = 0; channelIdx < channels; channelIdx += 1) {
+          let compressionMethod = 0;
+          [compressionMethod, offset] = this.decodeNumeric(dataView, offset, 'uint16');
+
+          const channelColor = layerRecord.channelInfo[channelIdx][0];
+          // Raw image data.
+          if (compressionMethod === 0) {
+            [layerImageData[channelColor], offset] = this.decodeTypedArray(dataView, offset, imageSize, 'uint8');
+
+          // RLE compressed image data.
+          } else if (compressionMethod === 1) {
+            let rowSize = null;
+            [rowSize, offset] = this.decodeTypedArray(dataView, offset, height * 2, 'uint16');
+            [layerImageData[channelColor], offset] = this.decodeRLE(dataView, rowSize, offset);
+
+          // Zip files.
+          } else {
+            throw new Error('Unsupported compression method.');
+          }
+        }
+
+        const rgbaImage = [];
+        for (let i = 0; i < layerImageData[0].length; i += 1) {
+          rgbaImage.push(layerImageData['0'][i]);
+          rgbaImage.push(layerImageData['1'][i]);
+          rgbaImage.push(layerImageData['2'][i]);
+          rgbaImage.push(layerImageData['-1'][i]);
+        }
+        const clampedImage = new Uint8ClampedArray(rgbaImage);
+        const imageData = new ImageData(clampedImage, width, height);
+        createImageBitmap(imageData).then((imageBitmap) => {
+          layerInfo.imageBitmap.push(imageBitmap);
         });
-
-        debugger
-
-        layerInfo.channelImageData.push(this.getImageData(
-          dataView,
-          length,
-          offset,
-          layerRecord.rectangle[3] - layerRecord.rectangle[1],
-          layerRecord.rectangle[2] - layerRecord.rectangle[0],
-          channel,
-        ));
       }
 
       return layerInfo;
     },
 
     getImageDataSection(psd) {
-      console.log(psd.structure);
-      return this.getImageData(
-        psd.dataView,
-        psd.structure.length[4],
-        psd.structure.offset[4],
-        psd.fileHeaderSection.width,
-        psd.fileHeaderSection.height,
-        psd.fileHeaderSection.channels,
-      );
-    },
+      const { dataView } = psd;
+      const {
+        imageSize,
+        height,
+        width,
+        channels,
+      } = psd.fileHeaderSection;
+      let offset = psd.structure.offset[4];
 
-    // Get RGBR ImageData. Length include area of compressionMethod(2byte).
-    getImageData(dataView, sectionlength, firstOffset, width, height, channels) {
-      const imageData = {};
-      const imageSize = height * width;
-      const dataLength = sectionlength - 2;
-      let offset = firstOffset;
-
-      [imageData.compressionMethod, offset] = this.decodeNumeric(dataView, offset, 'uint16');
-      const imageDataArray = this.decodeTypedArray(dataView, offset, dataLength, 'uint8')[0];
-
+      const imageDataSection = {};
+      [imageDataSection.compressionMethod, offset] = this.decodeNumeric(dataView, offset, 'uint16');
       const channelData = [];
-      // Raw image data.
-      if (imageData.compressionMethod === 0) {
-        channelData[0] = imageDataArray.slice(0, imageSize);
-        channelData[1] = imageDataArray.slice(imageSize, imageSize * 2);
-        channelData[2] = imageDataArray.slice(imageSize * 2, imageSize * 3);
-        if (channels === 4) {
-          channelData[3] = imageDataArray.slice(imageSize * 3, imageSize * 4);
-        } else {
-          channelData[3] = new Array(imageSize).fill(255);
-        }
 
+      // Raw image data.
+      if (imageDataSection.compressionMethod === 0) {
+        for (let i = 0; i < channels; i += 1) {
+          [channelData[i], offset] = this.decodeTypedArray(dataView, offset, imageSize, 'uint8');
+        }
       // RLE compressed image data.
-      } else if (imageData.compressionMethod === 1) {
+      } else if (imageDataSection.compressionMethod === 1) {
         const rowSizes = [];
         for (let i = 0; i < channels; i += 1) {
           [rowSizes[i], offset] = this.decodeTypedArray(dataView, offset, height * 2, 'uint16');
         }
-
         for (let i = 0; i < channels; i += 1) {
           [channelData[i], offset] = this.decodeRLE(dataView, rowSizes[i], offset);
         }
-
-        if (channels < 4) {
-          channelData[3] = new Array(imageSize).fill(255);
-        }
-
         // Zip files.
       } else {
         throw new Error('Unsupported compression method.');
+      }
+
+      if (channels < 4) {
+        channelData[3] = new Array(imageSize).fill(255);
       }
 
       const rgbaImage = [];
@@ -172,9 +177,11 @@ export default {
         rgbaImage.push(channelData[3][i]);
       }
       const clampedImage = new Uint8ClampedArray(rgbaImage);
-      imageData.imageData = new ImageData(clampedImage, width, height);
-
-      return imageData;
+      const imageData = new ImageData(clampedImage, width, height);
+      createImageBitmap(imageData).then((imageBitmap) => {
+        imageDataSection.imageBitmap = imageBitmap;
+      });
+      return imageDataSection;
     },
   },
 };
