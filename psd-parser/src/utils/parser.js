@@ -177,10 +177,12 @@ export default {
         rgbaImage.push(channelData[3][i]);
       }
       const clampedImage = new Uint8ClampedArray(rgbaImage);
-      const imageData = new ImageData(clampedImage, width, height);
-      createImageBitmap(imageData).then((imageBitmap) => {
-        imageDataSection.imageBitmap = imageBitmap;
-      });
+      imageDataSection.imageData = new ImageData(clampedImage, width, height);
+
+      // For set image Bitmap in utils.
+      // createImageBitmap(imageDataSection.imageData).then((imageBitmap) => {
+      //   imageDataSection.imageBitmap = imageBitmap;
+      // });
       return imageDataSection;
     },
   },
