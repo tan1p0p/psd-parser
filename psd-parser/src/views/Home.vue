@@ -1,14 +1,13 @@
 <template>
   <div class="home">
-    <!-- <img alt="Vue logo" src="../assets/logo.png"> -->
     <h1>PSDの中身を見るやつ</h1>
-    <sample-canvas
+    <thumbnail-canvas
       v-if="isFileParsed"
       :thumbnail="thumbnail"
     />
     <router-link
       v-if="isFileParsed" 
-      :to="{ name: 'edit', params: { psd: this.psd }}"
+      :to="{ name: 'edit', params: { psd: psd }}"
     >
       <p>このPSDを編集する</p>
     </router-link>
@@ -19,15 +18,14 @@
 </template>
 
 <script>
-// @ is an alias to /src
 import FilePicker from '@/components/FilePicker.vue';
-import SampleCanvas from '@/components/SampleCanvas.vue';
+import ThumbnailCanvas from '@/components/ThumbnailCanvas.vue';
 
 export default {
   name: 'Home',
   components: {
     FilePicker,
-    SampleCanvas,
+    ThumbnailCanvas,
   },
   data() {
     return {

@@ -93,8 +93,7 @@ export default {
       if (this.psd.dataView != null) {
         this.psd.structure = this.getStructure(this.psd);
         this.psd.fileHeaderSection = this.getFileHeaderSection(this.psd);
-        // this.psd.layerAndMaskInfoSection = this.getLayerAndMaskInfoSection(this.psd);
-        // console.log('Successfully got layer and mask info section.');
+        this.psd.layerAndMaskInfoSection = this.getLayerAndMaskInfoSection(this.psd);
         this.psd.imageDataSection = this.getImageDataSection(this.psd);
         this.setImageBitmap();
       }

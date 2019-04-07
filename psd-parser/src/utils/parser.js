@@ -89,8 +89,8 @@ export default {
         const layerRecord = layerInfo.layerRecords[layerIdx];
 
         const channels = layerRecord.channelInfo.length;
-        const width = layerRecord.rectangle[2] - layerRecord.rectangle[0];
-        const height = layerRecord.rectangle[3] - layerRecord.rectangle[1];
+        const width = layerRecord.rectangle[3] - layerRecord.rectangle[1];
+        const height = layerRecord.rectangle[2] - layerRecord.rectangle[0];
         const imageSize = width * height;
 
         const layerImageData = {};
@@ -104,6 +104,7 @@ export default {
             [layerImageData[channelColor], offset] = this.decodeTypedArray(dataView, offset, imageSize, 'uint8');
 
           // RLE compressed image data.
+          // TODO: If the layer's size, and therefore the data, is odd, a pad byte will be inserted at the end of the row.
           } else if (compressionMethod === 1) {
             let rowSize = null;
             [rowSize, offset] = this.decodeTypedArray(dataView, offset, height * 2, 'uint16');
@@ -115,6 +116,10 @@ export default {
           }
         }
 
+        if (channels < 4) {
+          layerImageData['-1'] = new Array(imageSize).fill(255);
+        }
+
         const rgbaImage = [];
         for (let i = 0; i < layerImageData[0].length; i += 1) {
           rgbaImage.push(layerImageData['0'][i]);
@@ -122,6 +127,7 @@ export default {
           rgbaImage.push(layerImageData['2'][i]);
           rgbaImage.push(layerImageData['-1'][i]);
         }
+
         const clampedImage = new Uint8ClampedArray(rgbaImage);
         const imageData = new ImageData(clampedImage, width, height);
         createImageBitmap(imageData).then((imageBitmap) => {

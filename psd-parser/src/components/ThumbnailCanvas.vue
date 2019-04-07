@@ -4,7 +4,7 @@
 
 <script>
 export default {
-  name: 'SampleCanvas',
+  name: 'ThumbnailCanvas',
   props: {
     thumbnail: {
       type: ImageBitmap,
