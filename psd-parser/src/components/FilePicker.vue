@@ -20,20 +20,23 @@
       </label>
       もしくはここにドラッグ<br>
       <p>{{ filename }}</p>
-      <label
-        class="parse_button"
-        :class="{ 'parse_button--disable':isFileNotPicked }"
-        @click="setPSD"
-      >
-        parse file!
-      </label>
+      <basic-button
+        :class="{'disable':isFileNotPicked}"
+        message="parse file!"
+        @click.native="setPSD"
+      />
     </div>
   </div>
 </template>
 
 <script>
+import BasicButton from '@/components/basics/BasicButton.vue';
+
 export default {
   name: 'FilePicker',
+  components: {
+    BasicButton,
+  },
   data() {
     return {
       fileOnBox: false,
@@ -126,25 +129,5 @@ export default {
 
 .input {
   display: none;
-}
-
-.parse_button {
-  padding: 5px 20px;
-  color: #fff;
-  border-radius: 2px;
-  user-select: none;
-  background-color: rgb(46, 89, 145);
-
-  &:hover {
-    background-color: rgb(54, 109, 180);
-  }
-
-  &:active {
-    background-color: rgb(32, 65, 109);
-  }
-
-  &.parse_button--disable {
-    background-color: rgb(155, 155, 155);
-  }
 }
 </style>

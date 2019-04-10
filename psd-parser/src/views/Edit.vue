@@ -6,6 +6,11 @@
         <main-canvas
           class="editor__canvas"
           :psd="psd"
+          :download-status="downloadStatus"
+        />
+        <basic-button
+          message="Create GIF file"
+          @click.native="setDownloadStatus"
         />
       </div>
     </div>
@@ -14,11 +19,13 @@
 
 <script>
 import MainCanvas from '@/components/MainCanvas.vue';
+import BasicButton from '@/components/basics/BasicButton.vue';
 
 export default {
   name: 'Edit',
   components: {
     MainCanvas,
+    BasicButton,
   },
   props: {
     psd: {
@@ -28,6 +35,16 @@ export default {
       }
     },
   },
+  data() {
+    return {
+      downloadStatus: false,
+    }
+  },
+  methods: {
+    setDownloadStatus() {
+      this.downloadStatus = true;
+    }
+  }
 };
 </script>
 

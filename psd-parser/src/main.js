@@ -1,6 +1,9 @@
+// Vue modules
 import Vue from 'vue';
 import App from './App.vue';
 import router from './router';
+
+// utils
 import decoder from './utils/decoder';
 import parser from './utils/parser';
 
