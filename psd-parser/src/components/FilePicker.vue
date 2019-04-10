@@ -23,7 +23,7 @@
       <label
         class="parse_button"
         :class="{ 'parse_button--disable':isFileNotPicked }"
-        @click="parsePSD"
+        @click="setPSD"
       >
         parse file!
       </label>
@@ -49,7 +49,6 @@ export default {
         layerAndMaskInfoSection: null,
         imageDataSection: null,
       },
-      // imageBitmap: null,
     };
   },
   computed: {
@@ -89,7 +88,7 @@ export default {
       };
       fileReader.readAsArrayBuffer(file);
     },
-    parsePSD() {
+    setPSD() {
       if (this.psd.dataView != null) {
         this.psd.structure = this.getStructure(this.psd);
         this.psd.fileHeaderSection = this.getFileHeaderSection(this.psd);

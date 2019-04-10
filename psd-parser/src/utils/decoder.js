@@ -66,7 +66,7 @@ export default {
       const channelData = [];
       let offset = firstOffset;
       rowSizes.forEach((rowSize) => {
-        const rowOffset = offset; // 上手く動かなかったらここを確認
+        const rowOffset = offset;
         while (offset - rowOffset < rowSize) {
           const sign = this.decodeNumeric(dataView, offset, 'int8')[0];
           offset += 1;

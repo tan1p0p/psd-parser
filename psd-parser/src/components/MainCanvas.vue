@@ -23,6 +23,7 @@ export default {
     this.ctx = this.$el.getContext('2d');
     this.$el.width = this.psd.fileHeaderSection.width;
     this.$el.height = this.psd.fileHeaderSection.height;
+    this.draw();
     setInterval(this.draw, 1000);
   },
   methods: {

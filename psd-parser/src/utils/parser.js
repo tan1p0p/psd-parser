@@ -120,15 +120,17 @@ export default {
           layerImageData['-1'] = new Array(imageSize).fill(255);
         }
 
-        const rgbaImage = [];
+        const clampedImage = new Uint8ClampedArray(layerImageData[0].length * 4);
         for (let i = 0; i < layerImageData[0].length; i += 1) {
-          rgbaImage.push(layerImageData['0'][i]);
-          rgbaImage.push(layerImageData['1'][i]);
-          rgbaImage.push(layerImageData['2'][i]);
-          rgbaImage.push(layerImageData['-1'][i]);
+          clampedImage.set([
+              layerImageData['0'][i],
+              layerImageData['1'][i],
+              layerImageData['2'][i],
+              layerImageData['-1'][i]
+            ], 4 * i
+          );
         }
 
-        const clampedImage = new Uint8ClampedArray(rgbaImage);
         const imageData = new ImageData(clampedImage, width, height);
         createImageBitmap(imageData).then((imageBitmap) => {
           layerInfo.imageBitmap.push(imageBitmap);
@@ -175,14 +177,16 @@ export default {
         channelData[3] = new Array(imageSize).fill(255);
       }
 
-      const rgbaImage = [];
+      const clampedImage = new Uint8ClampedArray(channelData[0].length * 4);
       for (let i = 0; i < channelData[0].length; i += 1) {
-        rgbaImage.push(channelData[0][i]);
-        rgbaImage.push(channelData[1][i]);
-        rgbaImage.push(channelData[2][i]);
-        rgbaImage.push(channelData[3][i]);
+        clampedImage.set([
+            channelData[0][i],
+            channelData[1][i],
+            channelData[2][i],
+            channelData[3][i]
+          ], 4 * i
+        );
       }
-      const clampedImage = new Uint8ClampedArray(rgbaImage);
       imageDataSection.imageData = new ImageData(clampedImage, width, height);
 
       // For set image Bitmap in utils.

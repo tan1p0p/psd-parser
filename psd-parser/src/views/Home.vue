@@ -9,7 +9,7 @@
       v-if="isFileParsed" 
       :to="{ name: 'edit', params: { psd: psd }}"
     >
-      <p>このPSDを編集する</p>
+      <p>このPSDのレイヤーを見る</p>
     </router-link>
     <file-picker
       @createImageBitmap="setFileData"
@@ -42,7 +42,7 @@ export default {
     setFileData(psd) {
       this.psd = psd;
       this.thumbnail = psd.imageDataSection.imageBitmap;
-    }
+    },
   }
 };
 </script>
