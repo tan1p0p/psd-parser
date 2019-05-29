@@ -90,7 +90,7 @@ export default {
         const rectangle = [];
         for (let j = 0; j < 4; j += 1) {
           let value = 0;
-          [value, offset] = this.decodeNumeric(dataView, offset, 'uint32');
+          [value, offset] = this.decodeNumeric(dataView, offset, 'int32');
           rectangle.push(value);
         }
         layerRecord.rectangle = rectangle;

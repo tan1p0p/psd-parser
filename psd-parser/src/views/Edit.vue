@@ -11,15 +11,15 @@
           xmlns:xlink="http://www.w3.org/1999/xlink"
         >
           <image
-            v-for="(value, key, index) in psd.layerAndMaskInfoSection.base64"
+            v-for="(value, key, index) in psd.layerAndMaskInfoSection.layerRecords"
             :key="index"
-            x="0"
-            y="0"
-            height="100"
-            width="100"
-            :xlink:href="value"
+            :x="value.rectangle[1]"
+            :y="value.rectangle[0]"
+            :width="value.rectangle[3] - value.rectangle[1]"
+            :height="value.rectangle[2] - value.rectangle[0]"
+            :xlink:href="psd.layerAndMaskInfoSection.base64[key]"
             :class="'layer-' + key"
-            :style="'mix-blend-mode:' + psd.layerAndMaskInfoSection.layerRecords[key].blendMode + ';'"
+            :style="'mix-blend-mode:' + value.blendMode + ';'"
           />
         </svg>
         <basic-button
