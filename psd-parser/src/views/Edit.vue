@@ -3,11 +3,25 @@
     <h1>Drawing process GIF</h1>
     <div class="editor_wrapper">
       <div class="editor">
-        <main-canvas
-          class="editor__canvas"
-          :psd="psd"
-          :download-status="downloadStatus"
-        />
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg" 
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+        >
+          <image
+            v-for="(value, key, index) in psd.layerAndMaskInfoSection.base64"
+            :key="index"
+            x="0"
+            y="0"
+            height="100"
+            width="100"
+            :xlink:href="value"
+            :class="'layer-' + key"
+            :style="'mix-blend-mode:' + psd.layerAndMaskInfoSection.layerRecords[key].blendMode + ';'"
+          />
+        </svg>
         <basic-button
           message="Create GIF file"
           @click.native="setDownloadStatus"
@@ -18,13 +32,13 @@
 </template>
 
 <script>
-import MainCanvas from '@/components/MainCanvas.vue';
+// import MainCanvas from '@/components/MainCanvas.vue';
 import BasicButton from '@/components/basics/BasicButton.vue';
 
 export default {
   name: 'Edit',
   components: {
-    MainCanvas,
+    // MainCanvas,
     BasicButton,
   },
   props: {
