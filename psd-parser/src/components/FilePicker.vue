@@ -98,6 +98,7 @@ export default {
         this.psd.layerAndMaskInfoSection = this.getLayerAndMaskInfoSection(this.psd);
         this.psd.imageDataSection = this.getImageDataSection(this.psd);
         this.setImageBitmap();
+        this.$router.push({ name: 'edit', params: { psd: this.psd }});
       }
     },
     setImageBitmap() {

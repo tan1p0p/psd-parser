@@ -109,7 +109,7 @@ export default {
         [layerRecord.blendModeSignature, offset] = this.decodeString(arrayBuffer, offset, 4);
         let blendModeKey = '';
         [blendModeKey, offset] = this.decodeString(arrayBuffer, offset, 4);
-        layerRecord.blendMode = blendModeDict[blendModeKey];
+        layerRecord.blendMode = blendModeDict[blendModeKey.trim()];
         [layerRecord.opacity, offset] = this.decodeNumeric(dataView, offset, 'uint8');
         [layerRecord.clipping, offset] = this.decodeNumeric(dataView, offset, 'uint8');
         [layerRecord.flags, offset] = this.decodeNumeric(dataView, offset, 'uint8');

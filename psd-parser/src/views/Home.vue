@@ -1,16 +1,6 @@
 <template>
   <div class="home">
     <h1>PSDの中身を見るやつ</h1>
-    <thumbnail-canvas
-      v-if="isFileParsed"
-      :thumbnail="thumbnail"
-    />
-    <router-link
-      v-if="isFileParsed" 
-      :to="{ name: 'edit', params: { psd: psd }}"
-    >
-      <p>このPSDのレイヤーを見る</p>
-    </router-link>
     <file-picker
       @createImageBitmap="setFileData"
     />
@@ -19,13 +9,11 @@
 
 <script>
 import FilePicker from '@/components/FilePicker.vue';
-import ThumbnailCanvas from '@/components/ThumbnailCanvas.vue';
 
 export default {
   name: 'Home',
   components: {
     FilePicker,
-    ThumbnailCanvas,
   },
   data() {
     return {
